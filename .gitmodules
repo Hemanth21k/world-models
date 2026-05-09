@@ -1,0 +1,6 @@
+[submodule "GR00T-H"]
+	path = GR00T-H
+	url = https://github.com/NVIDIA-Medtech/GR00T-H.git
+[submodule "vjepa2"]
+	path = vjepa2
+	url = https://github.com/facebookresearch/vjepa2.git
