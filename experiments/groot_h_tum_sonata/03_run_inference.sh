@@ -13,9 +13,11 @@
 #   DENOISING_STEPS      - diffusion denoising steps (default: 4)
 set -e
 
-WEIGHTS_DIR="${GROOT_H_WEIGHTS_DIR:-/fdata1/hemanthp/huggingface_models/GR00T-H}"
-DATASET_DIR="${DATASET_DIR:-/fdata1/hemanthp/WorldModelling/datasets/h_embodiment_data/Ultrasound/tum/computer_aided_medical_procedures_camp_lab/sonata_all_update/sonata_all}"
-OUTPUTS_DIR="${OUTPUTS_DIR:-/fdata1/hemanthp/WorldModelling/outputs/groot_h_tum_sonata}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+WEIGHTS_DIR="${GROOT_H_WEIGHTS_DIR:-$HOME/models/GR00T-H}"
+DATASET_DIR="${DATASET_DIR:?Set DATASET_DIR to your local sonata_all LeRobot dataset path}"
+OUTPUTS_DIR="${OUTPUTS_DIR:-$REPO_ROOT/outputs/groot_h_tum_sonata}"
 TRAJ_IDS="${TRAJ_IDS:-0 1 2}"
 ACTION_HORIZON="${ACTION_HORIZON:-50}"
 STEPS="${STEPS:-300}"

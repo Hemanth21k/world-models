@@ -10,7 +10,7 @@ from huggingface_hub import snapshot_download
 
 WEIGHTS_DIR = os.environ.get(
     "GROOT_H_WEIGHTS_DIR",
-    "/fdata1/hemanthp/huggingface_models/GR00T-H",
+    os.path.join(os.path.expanduser("~"), "models", "GR00T-H"),
 )
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
