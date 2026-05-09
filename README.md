@@ -49,13 +49,42 @@ git clone --recurse-submodules https://github.com/Hemanth21k/world-models.git
 cd world-models
 ```
 
-Individual submodules have their own environments. See the experiment scripts
-in `experiments/` for Docker-based setup that handles all dependencies.
+All models run inside Docker. See [`docker/`](docker/) for the unified setup.
+
+## Docker
+
+Each model has two image targets — choose based on your use case.
+
+| Target | Image | Use case |
+|--------|-------|----------|
+| `groot-h` | `world-models:groot-h` | **Deployment** — source baked in, no mounts needed |
+| `groot-h-dev` | `world-models:groot-h-dev` | **Development** — deps only, repo mounted live |
+| `vjepa2` | `world-models:vjepa2` | **Deployment** — source baked in |
+| `vjepa2-dev` | `world-models:vjepa2-dev` | **Development** — deps only, repo mounted live |
+
+```bash
+# Build a specific image
+bash docker/docker_run.sh build groot-h
+
+# Build everything at once
+bash docker/docker_run.sh build all
+
+# Open a deployment shell (code baked in)
+bash docker/docker_run.sh shell groot-h
+
+# Open a development shell (live code mount)
+bash docker/docker_run.sh shell groot-h-dev
+# → inside the container, run once to install in editable mode:
+#   pip install -e /workspace/groot_h --no-deps
+
+# Verify all GPUs are visible
+bash docker/docker_run.sh gpu-check groot-h
+```
 
 ## Quick start: GR00T-H inference on TUM SonATA Franka
 
 ```bash
-# 1. Build Docker image (~10-20 min)
+# 1. Build the deployment image (~10-20 min first time)
 bash experiments/groot_h_tum_sonata/01_build_image.sh
 
 # 2. Download weights (requires HuggingFace token + accepted license)

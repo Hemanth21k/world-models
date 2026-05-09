@@ -1,6 +1,6 @@
 version: "3.8"
 
-# Shared GPU + IPC config reused by every service
+# ── Shared GPU + IPC config ───────────────────────────────────────────────────
 x-gpu: &gpu
   deploy:
     resources:
@@ -20,14 +20,20 @@ x-gpu: &gpu
   stdin_open: true
   tty: true
 
+# ── Shared build context ──────────────────────────────────────────────────────
+x-build: &build-base
+  context: ..
+  dockerfile: docker/Dockerfile
+
 services:
 
-  # ─── GR00T-H ───────────────────────────────────────────────────────────────
+  # ── GR00T-H ─────────────────────────────────────────────────────────────────
+
+  # Deployment: source baked in, no mounts needed for code.
   groot-h:
     <<: *gpu
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      <<: *build-base
       target: groot-h
     image: world-models:groot-h
     volumes:
@@ -36,15 +42,45 @@ services:
       - ../outputs:/outputs
     working_dir: /workspace/groot_h
 
-  # ─── V-JEPA 2 ──────────────────────────────────────────────────────────────
+  # Development: deps only, source mounted live from the repo.
+  # After starting: pip install -e /workspace/groot_h --no-deps
+  groot-h-dev:
+    <<: *gpu
+    build:
+      <<: *build-base
+      target: groot-h-deps
+    image: world-models:groot-h-dev
+    volumes:
+      - ../vla/GR00T-H:/workspace/groot_h   # live code mount
+      - ${WEIGHTS_DIR:-$HOME/models/GR00T-H}:/weights/GR00T-H:ro
+      - ${DATASET_DIR:-/tmp/no_dataset}:/data:ro
+      - ../outputs:/outputs
+    working_dir: /workspace/groot_h
+
+  # ── V-JEPA 2 ────────────────────────────────────────────────────────────────
+
+  # Deployment: source baked in.
   vjepa2:
     <<: *gpu
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      <<: *build-base
       target: vjepa2
     image: world-models:vjepa2
     volumes:
+      - ${DATASET_DIR:-/tmp/no_dataset}:/data:ro
+      - ../outputs:/outputs
+    working_dir: /workspace/vjepa2
+
+  # Development: deps only, source mounted live from the repo.
+  # After starting: pip install -e /workspace/vjepa2 --no-deps
+  vjepa2-dev:
+    <<: *gpu
+    build:
+      <<: *build-base
+      target: vjepa2-deps
+    image: world-models:vjepa2-dev
+    volumes:
+      - ../latent_predictive/vjepa2:/workspace/vjepa2   # live code mount
       - ${DATASET_DIR:-/tmp/no_dataset}:/data:ro
       - ../outputs:/outputs
     working_dir: /workspace/vjepa2
