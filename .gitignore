@@ -1,7 +1,14 @@
-# Large data — never commit
+# Raw data and generated outputs — never commit
 datasets/
-weights/
 outputs/
+data/
+
+# Model weights
+weights/
+*.bin
+*.safetensors
+*.pt
+*.pth
 
 # Python artifacts
 __pycache__/
@@ -12,6 +19,9 @@ dist/
 build/
 .venv/
 *.log
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Editor / tool state
 .claude/

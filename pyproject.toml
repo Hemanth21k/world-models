@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "world-models"
+version = "0.0.1"
+description = "Unified interface for testing and extending world models for Physical AI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Hemanth Pasupuleti" }
+]
+keywords = [
+  "world-models", "physical-ai", "embodied-ai", "vla",
+  "robot-learning", "multimodal-learning", "foundation-models"
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Hemanth21k/world-models"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["world_models*"]

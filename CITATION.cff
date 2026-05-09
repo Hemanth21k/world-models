@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+title: "world-models: Unified interface for testing and extending world model architectures for Physical AI"
+authors:
+  - family-names: "Pasupuleti"
+    given-names: "Hemanth"
+type: software
+year: 2026
+url: "https://github.com/Hemanth21k/world-models"
+license: Apache-2.0
