@@ -53,33 +53,35 @@ All models run inside Docker. See [`docker/`](docker/) for the unified setup.
 
 ## Docker
 
-Each model has two image targets — choose based on your use case.
+Every model in the repo follows the same two-target convention defined in [`docker/docker-compose.yml`](docker/docker-compose.yml):
 
-| Target | Image | Use case |
-|--------|-------|----------|
-| `groot-h` | `world-models:groot-h` | **Deployment** — source baked in, no mounts needed |
-| `groot-h-dev` | `world-models:groot-h-dev` | **Development** — deps only, repo mounted live |
-| `vjepa2` | `world-models:vjepa2` | **Deployment** — source baked in |
-| `vjepa2-dev` | `world-models:vjepa2-dev` | **Development** — deps only, repo mounted live |
+| Target | Use case |
+|--------|----------|
+| `<model>` | **Deployment** — source baked in, fully self-contained |
+| `<model>-dev` | **Development** — deps only, source mounted live from repo |
 
 ```bash
-# Build a specific image
-bash docker/docker_run.sh build groot-h
+# See all available model services
+bash docker/docker_run.sh list
 
-# Build everything at once
+# Build any model (deployment or dev)
+bash docker/docker_run.sh build <model>
 bash docker/docker_run.sh build all
 
-# Open a deployment shell (code baked in)
-bash docker/docker_run.sh shell groot-h
+# Shell into any model
+bash docker/docker_run.sh shell <model>          # deployment
+bash docker/docker_run.sh shell <model>-dev      # development
+# → inside the dev container, run once:
+#   pip install -e . --no-deps
 
-# Open a development shell (live code mount)
-bash docker/docker_run.sh shell groot-h-dev
-# → inside the container, run once to install in editable mode:
-#   pip install -e /workspace/groot_h --no-deps
+# Verify GPUs
+bash docker/docker_run.sh gpu-check [model]
 
-# Verify all GPUs are visible
-bash docker/docker_run.sh gpu-check groot-h
+# Run any command inside a model container
+bash docker/docker_run.sh run <model> python my_script.py
 ```
+
+Adding a new model just requires a new stage in [`docker/Dockerfile`](docker/Dockerfile) and a new service in [`docker/docker-compose.yml`](docker/docker-compose.yml). The `docker_run.sh` script works with any service name automatically.
 
 ## Quick start: GR00T-H inference on TUM SonATA Franka
 
