@@ -39,8 +39,8 @@ docker run --rm --gpus all \
     -v "$WEIGHTS_DIR":/weights/GR00T-H:ro \
     -v "$DATASET_DIR":/data/sonata_all:ro \
     -v "$OUTPUTS_DIR":/tmp/stand_alone_inference \
-    gr00t-dev \
-    bash -c "cd /workspace/gr00t && python scripts/deployment/standalone_inference_script.py \
+    world-models:groot-h \
+    bash -c "python scripts/deployment/standalone_inference_script.py \
         --model-path /weights/GR00T-H \
         --dataset-path /data/sonata_all \
         --embodiment-tag TUM_SONATA_FRANKA \

@@ -1,0 +1,26 @@
+# Git internals
+.git/
+**/.git
+
+# Simulation eval environments — not needed for inference (765 MB)
+vla/GR00T-H/external_dependencies/
+
+# Raw data and generated outputs
+datasets/
+outputs/
+data/
+weights/
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+**/dist/
+**/build/
+**/.venv/
+
+# Misc
+.env
+.env.*
+.DS_Store
+**/*.log

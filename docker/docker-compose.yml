@@ -1,0 +1,50 @@
+version: "3.8"
+
+# Shared GPU + IPC config reused by every service
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+    - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+  shm_size: "64gb"
+  ipc: host
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  stdin_open: true
+  tty: true
+
+services:
+
+  # ─── GR00T-H ───────────────────────────────────────────────────────────────
+  groot-h:
+    <<: *gpu
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: groot-h
+    image: world-models:groot-h
+    volumes:
+      - ${WEIGHTS_DIR:-$HOME/models/GR00T-H}:/weights/GR00T-H:ro
+      - ${DATASET_DIR:-/tmp/no_dataset}:/data:ro
+      - ../outputs:/outputs
+    working_dir: /workspace/groot_h
+
+  # ─── V-JEPA 2 ──────────────────────────────────────────────────────────────
+  vjepa2:
+    <<: *gpu
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: vjepa2
+    image: world-models:vjepa2
+    volumes:
+      - ${DATASET_DIR:-/tmp/no_dataset}:/data:ro
+      - ../outputs:/outputs
+    working_dir: /workspace/vjepa2
