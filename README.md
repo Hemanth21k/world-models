@@ -53,35 +53,45 @@ All models run inside Docker. See [`docker/`](docker/) for the unified setup.
 
 ## Docker
 
-Every model in the repo follows the same two-target convention defined in [`docker/docker-compose.yml`](docker/docker-compose.yml):
+All containers share the `world-models` image repository and are identified by tag:
 
-| Target | Use case |
-|--------|----------|
-| `<model>` | **Deployment** — source baked in, fully self-contained |
-| `<model>-dev` | **Development** — deps only, source mounted live from repo |
-
-```bash
-# See all available model services
-bash docker/docker_run.sh list
-
-# Build any model (deployment or dev)
-bash docker/docker_run.sh build <model>
-bash docker/docker_run.sh build all
-
-# Shell into any model
-bash docker/docker_run.sh shell <model>          # deployment
-bash docker/docker_run.sh shell <model>-dev      # development
-# → inside the dev container, run once:
-#   pip install -e . --no-deps
-
-# Verify GPUs
-bash docker/docker_run.sh gpu-check [model]
-
-# Run any command inside a model container
-bash docker/docker_run.sh run <model> python my_script.py
+```
+world-models:groot-h        # deployment — GR00T-H source baked in
+world-models:groot-h-dev    # development — deps only, source mounted live
+world-models:vjepa2         # deployment — V-JEPA 2 source baked in
+world-models:vjepa2-dev     # development
 ```
 
-Adding a new model just requires a new stage in [`docker/Dockerfile`](docker/Dockerfile) and a new service in [`docker/docker-compose.yml`](docker/docker-compose.yml). The `docker_run.sh` script works with any service name automatically.
+Every model follows the same two-tag convention defined in [`docker/docker-compose.yml`](docker/docker-compose.yml):
+
+| Tag suffix | Use case |
+|------------|----------|
+| `<model>` | **Deployment** — source baked in, fully self-contained, no mounts needed |
+| `<model>-dev` | **Development** — deps only, source folder mounted live from the repo |
+
+```bash
+# List all available model tags
+bash docker/docker_run.sh list
+
+# Build one image or all at once
+bash docker/docker_run.sh build groot-h
+bash docker/docker_run.sh build           # builds every world-models:* image
+
+# Open a shell (one model at a time)
+bash docker/docker_run.sh shell groot-h          # deployment
+bash docker/docker_run.sh shell groot-h-dev      # development
+# → inside the dev container, run once to install in editable mode:
+#   pip install -e . --no-deps
+
+# Verify GPUs (defaults to first deployment service if no tag given)
+bash docker/docker_run.sh gpu-check
+bash docker/docker_run.sh gpu-check vjepa2
+
+# Run any command inside a container
+DATASET_DIR=/data bash docker/docker_run.sh run vjepa2 python app/main.py
+```
+
+Adding a new model requires only a new stage in [`docker/Dockerfile`](docker/Dockerfile) and a new service in [`docker/docker-compose.yml`](docker/docker-compose.yml). `docker_run.sh` picks it up automatically.
 
 ## Quick start: GR00T-H inference on TUM SonATA Franka
 
