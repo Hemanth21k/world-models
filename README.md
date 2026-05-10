@@ -25,6 +25,7 @@ Planned next:
 
 ```
 world-models/
+├── adapters/            # Thin wrappers from shared contracts to model code
 ├── latent_predictive/   # JEPA-family: predict future latents
 │   └── vjepa2/          # submodule — Meta FAIR V-JEPA 2 / 2.1
 ├── generative/          # Cosmos, DiT-based: predict pixels / tokens
@@ -34,6 +35,8 @@ world-models/
 ├── eval/                # Shared benchmarks and evaluation utilities
 ├── experiments/         # Self-contained run scripts per model × dataset
 │   └── groot_h_tum_sonata/
+├── patches/             # Isolated compatibility patches for upstream projects
+├── research/            # Public, cleaned research extensions and examples
 ├── datasets/            # Raw data — gitignored (set DATASET_DIR env var)
 ├── docs/                # Architecture notes, design decisions
 └── LICENSE
@@ -41,6 +44,17 @@ world-models/
 
 The taxonomy is organized by **what the model predicts**: future latents, 
 future pixels, both, or actions — the cleanest axis for cross-family comparison.
+
+## Research workflow
+
+Treat this repository as the public platform layer: Docker images, model
+adapters, dataset adapters, evaluation contracts, metrics, and reproducible
+example experiments. Keep messy, unpublished, or private research in a separate
+repo that depends on `world-models`.
+
+See [docs/RESEARCH_WORKFLOW.md](docs/RESEARCH_WORKFLOW.md) for the recommended
+private-research setup and [docs/EXPERIMENT_CONTRACTS.md](docs/EXPERIMENT_CONTRACTS.md)
+for the shared experiment contract approach.
 
 ## Installation
 
