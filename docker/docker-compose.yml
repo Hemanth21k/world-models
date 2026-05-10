@@ -43,7 +43,7 @@ services:
     working_dir: /workspace/groot_h
 
   # Development: deps only, source mounted live from the repo.
-  # After starting: pip install -e /workspace/groot_h --no-deps
+  # After starting: uv sync --python 3.10  (installs gr00t into existing venv)
   groot-h-dev:
     <<: *gpu
     build:

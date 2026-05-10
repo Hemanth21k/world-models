@@ -12,11 +12,12 @@ RUN apt-get update && apt-get install -y \
     # build tools
     build-essential yasm cmake libtool git pkg-config tmux \
     autoconf automake texinfo \
-    # media / codec (ffmpeg + libav for torchcodec / decord / vjepa2)
-    ffmpeg libavcodec-dev libavformat-dev libswscale-dev \
+    # media / codec (ffmpeg + full libav dev headers for PyAV / torchcodec / decord)
+    ffmpeg libavcodec-dev libavformat-dev libavdevice-dev \
+    libavfilter-dev libavutil-dev libswscale-dev libswresample-dev \
     libass-dev libfreetype6-dev libvorbis-dev \
     # OpenGL / EGL (GR00T-H headless rendering + vjepa2 CV deps)
-    libegl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgl1-mesa-glx \
+    libegl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip setuptools && pip install uv
@@ -33,55 +34,58 @@ WORKDIR /workspace
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage: groot-h-deps  [DEVELOPMENT target]
-# All GR00T-H Python dependencies pre-installed. No source code included.
-# Mount the repo at runtime for live editing:
+# Python 3.10 venv with all GR00T-H dependencies. No source code included.
+#
+# GR00T-H requires Python 3.10 (pyproject.toml: requires-python = "==3.10.*").
+# uv manages its own Python installation, so it downloads 3.10 and creates a
+# venv at /workspace/groot_h/.venv regardless of the system Python (3.12).
+#
+# For development (live mount):
 #   docker run ... -v ./vla/GR00T-H:/workspace/groot_h world-models:groot-h-dev
-# Then inside the container: pip install -e /workspace/groot_h --no-deps
+#   Inside: uv sync --python 3.10   (installs gr00t into the existing venv)
 # ═══════════════════════════════════════════════════════════════════════════════
 FROM base AS groot-h-deps
 
-# Fix known pip constraint conflicts in the NVIDIA base image
-RUN sed -i 's/dill==0.3.9/dill==0.3.8/g'     /etc/pip/constraint.txt 2>/dev/null || true && \
-    sed -i 's/scipy==1.15.2/scipy==1.15.3/g' /etc/pip/constraint.txt 2>/dev/null || true
+# Copy only the lockfiles to create a cacheable deps layer (no source yet).
+# --no-install-workspace: skip installing gr00t and workspace members —
+#   source isn't available at this stage.
+COPY vla/GR00T-H/pyproject.toml vla/GR00T-H/uv.lock /workspace/groot_h/
+WORKDIR /workspace/groot_h
+RUN uv sync --python 3.10 --no-install-workspace
 
-# Additional packages GR00T-H needs beyond its pyproject.toml
+# Put the Python 3.10 venv on PATH so all subsequent steps use it
+ENV PATH="/workspace/groot_h/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/workspace/groot_h/.venv"
+
+# Extra packages not in pyproject.toml but used at runtime
 RUN pip install \
-    imageio h5py boto3 \
-    "transformers[torch]" deepspeed timm peft diffusers \
-    wandb tianshou dm_tree openai \
-    albumentations==1.4.18 decord==0.6.0 torchcodec==0.4.0
+    imageio h5py boto3 deepspeed tianshou openai \
+    decord==0.6.0
 
-# pytorch3d — compiled from source (~10 min, layer-cached after first build)
+# pytorch3d compiled for Python 3.10 (pip now points to the venv)
 RUN cd /opt && git clone https://github.com/facebookresearch/pytorch3d.git && \
     cd pytorch3d && pip install .
-
-# Pre-install GR00T-H's declared dependencies from the lockfile,
-# without installing the gr00t package itself (no source needed yet).
-COPY vla/GR00T-H/pyproject.toml vla/GR00T-H/uv.lock /tmp/groot_h_pkg/
-RUN cd /tmp/groot_h_pkg && \
-    uv export --frozen --no-dev --no-emit-project -o /tmp/groot_h_requirements.txt && \
-    pip install -r /tmp/groot_h_requirements.txt
-
-WORKDIR /workspace/groot_h
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage: groot-h  [DEPLOYMENT target]
-# Self-contained — source code baked in, ready to run without any mounts.
+# Self-contained — source baked in, venv completed, ready to run.
 # ═══════════════════════════════════════════════════════════════════════════════
 FROM groot-h-deps AS groot-h
 
-# external_dependencies/ is excluded by .dockerignore (saves ~765 MB)
+# external_dependencies/ excluded by .dockerignore (saves ~765 MB)
 COPY vla/GR00T-H /workspace/groot_h
-RUN pip install -e /workspace/groot_h --no-deps
+# uv detects the existing venv and installs the gr00t project into it
+RUN uv sync --python 3.10
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage: vjepa2-deps  [DEVELOPMENT target]
 # All V-JEPA 2 Python dependencies pre-installed. No source code included.
-# Mount the repo at runtime for live editing:
+#
+# For development (live mount):
 #   docker run ... -v ./latent_predictive/vjepa2:/workspace/vjepa2 world-models:vjepa2-dev
-# Then inside the container: pip install -e /workspace/vjepa2 --no-deps
+#   Inside: pip install -e . --no-deps
 # ═══════════════════════════════════════════════════════════════════════════════
 FROM base AS vjepa2-deps
 

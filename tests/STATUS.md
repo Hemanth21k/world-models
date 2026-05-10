@@ -6,7 +6,7 @@ Legend: ✅ verified · ⏳ not yet tested · ❌ known issue
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| Docker image builds | ⏳ | |
+| Docker image builds | ✅ | 2026-05-09 — all 4 images (groot-h, groot-h-dev, vjepa2, vjepa2-dev) |
 | GPU visible inside container | ⏳ | |
 | Package imports (`import gr00t`) | ⏳ | |
 | Inference runs end-to-end | ⏳ | TUM SonATA Franka, traj 0–2 |
@@ -15,7 +15,7 @@ Legend: ✅ verified · ⏳ not yet tested · ❌ known issue
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| Docker image builds | ⏳ | |
+| Docker image builds | ✅ | 2026-05-09 — built alongside GR00T-H |
 | GPU visible inside container | ⏳ | |
 | Package imports (`import app`) | ⏳ | |
 | Inference runs end-to-end | ⏳ | |
