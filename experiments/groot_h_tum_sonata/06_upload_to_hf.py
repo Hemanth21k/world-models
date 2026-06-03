@@ -18,7 +18,7 @@ from huggingface_hub import HfApi, create_repo
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
-HF_REPO = os.environ.get("HF_REPO", "hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka")
+HF_REPO = os.environ.get("HF_REPO", "Hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 OUTPUTS_DIR = REPO_ROOT / "outputs" / "groot_h_tum_sonata_finetune"
 MODEL_CARD = Path(__file__).parent / "MODEL_CARD.md"

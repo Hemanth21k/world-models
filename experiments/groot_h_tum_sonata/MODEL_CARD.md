@@ -72,7 +72,7 @@ For future runs at this batch size, a peak learning rate of **4e-4** or lower is
 from gr00t.model.policy import Gr00tPolicy
 
 policy = Gr00tPolicy(
-    model_path="hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka",
+    model_path="Hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka",
     embodiment_tag="TUM_SONATA_FRANKA",
     denoising_steps=4,
 )
