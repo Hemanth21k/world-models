@@ -62,6 +62,9 @@ RUN pip install \
     imageio h5py boto3 deepspeed tianshou openai \
     decord==0.6.0
 
+# GR00T-H's Eagle backbone requires FlashAttention2 at inference time.
+RUN uv pip install --no-build-isolation flash-attn==2.7.4.post1
+
 # pytorch3d compiled for Python 3.10 (pip now points to the venv)
 RUN cd /opt && git clone https://github.com/facebookresearch/pytorch3d.git && \
     cd pytorch3d && pip install .
@@ -76,7 +79,8 @@ FROM groot-h-deps AS groot-h
 # external_dependencies/ excluded by .dockerignore (saves ~765 MB)
 COPY vla/GR00T-H /workspace/groot_h
 # uv detects the existing venv and installs the gr00t project into it
-RUN uv sync --python 3.10
+RUN uv sync --python 3.10 && \
+    uv pip install --no-build-isolation flash-attn==2.7.4.post1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

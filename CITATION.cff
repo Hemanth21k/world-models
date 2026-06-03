@@ -4,7 +4,28 @@ title: "world-models: Unified interface for testing and extending world model ar
 authors:
   - family-names: "Pasupuleti"
     given-names: "Hemanth"
+    affiliation: "Quantitative Bio Imaging Lab (QBIL), The University of Texas at Dallas"
+    orcid: ""
 type: software
 year: 2026
 url: "https://github.com/Hemanth21k/world-models"
 license: Apache-2.0
+abstract: >
+  A unified platform for evaluating and fine-tuning world model architectures for Physical AI,
+  with initial focus on surgical and medical robotics. Includes Docker infrastructure, dataset
+  adapters, evaluation contracts, and reproducible experiments for models such as GR00T-H and
+  V-JEPA 2.
+keywords:
+  - world models
+  - physical AI
+  - surgical robotics
+  - vision-language-action
+  - robot learning
+  - ultrasound robotics
+funding:
+  - name: "National Cancer Institute, National Institutes of Health"
+    award: "R01CA288379"
+  - name: "National Cancer Institute, National Institutes of Health"
+    award: "R01CA204254"
+  - name: "Cancer Prevention and Research Institute of Texas (CPRIT)"
+    award: "RP240289"

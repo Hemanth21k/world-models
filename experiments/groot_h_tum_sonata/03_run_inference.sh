@@ -36,6 +36,9 @@ echo "  Steps     : $STEPS per trajectory"
 echo "============================================"
 
 docker run --rm --gpus all \
+    --ipc=host \
+    --ulimit memlock=-1 \
+    --ulimit stack=67108864 \
     -v "$WEIGHTS_DIR":/weights/GR00T-H:ro \
     -v "$DATASET_DIR":/data/sonata_all:ro \
     -v "$OUTPUTS_DIR":/tmp/stand_alone_inference \
