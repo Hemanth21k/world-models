@@ -1,0 +1,24 @@
+From: Hemanth Pasupuleti <satyasaihemanth.p@utdallas.edu>
+Subject: [PATCH] Allow unexpected dropout_prob_by_embodiment key when loading N1.7 checkpoint
+
+The released nvidia/GR00T-H-N1.7 checkpoint contains
+'action_head.dropout_prob_by_embodiment' but the d8369db code no longer
+defines this parameter in Gr00tN1d7. The existing allowlist only covers
+the reverse (model has the key, checkpoint doesn't). Add the symmetric
+case so the checkpoint key is silently ignored on load.
+
+Upstream issue: code/weights mismatch in NVIDIA-Medtech/GR00T-H d8369db.
+Apply with: git apply patches/groot_h/001-allow-unexpected-dropout-prob-key.patch
+Remove when upstream fixes the mismatch.
+
+--- a/gr00t/model/gr00t_n1d7/setup.py
++++ b/gr00t/model/gr00t_n1d7/setup.py
+@@ -102,6 +102,8 @@ class Gr00tN1d7Pipeline(ModelPipeline):
+             allowed_missing_keys = {"action_head.dropout_prob_by_embodiment"}
+             missing_keys = [key for key in missing_keys if key not in allowed_missing_keys]
+             unexpected_keys = loading_info.get("unexpected_keys", [])
++            allowed_unexpected_keys = {"action_head.dropout_prob_by_embodiment"}
++            unexpected_keys = [key for key in unexpected_keys if key not in allowed_unexpected_keys]
+             mismatched_keys = loading_info.get("mismatched_keys", [])
+             errors = []
+             if missing_keys:
