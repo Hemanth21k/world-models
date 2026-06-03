@@ -1,6 +1,6 @@
 [submodule "GR00T-H"]
 	path = vla/GR00T-H
-	url = https://github.com/NVIDIA-Medtech/GR00T-H.git
+	url = https://github.com/Hemanth21k/GR00T-H.git
 [submodule "vjepa2"]
 	path = latent_predictive/vjepa2
 	url = https://github.com/facebookresearch/vjepa2.git
