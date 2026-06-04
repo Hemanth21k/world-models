@@ -29,3 +29,6 @@ build/
 .env.*
 *.swp
 .DS_Store
+
+# Local-only helper scripts (machine-specific paths / not part of the pipeline)
+watch_progress.sh

@@ -12,13 +12,16 @@ spanning embodied perception, action-conditioned prediction, and robot autonomy.
 
 🚧 Early development. Currently integrating:
 
-- **V-JEPA 2** (`latent_predictive/`) — video world model, latent-space prediction
-- **GR00T-H** (`vla/`) — healthcare VLA via the Open-H Embodiment dataset
+- **GR00T-H** (`vla/`) — healthcare VLA. **Fine-tuned and evaluated on the TUM SonATA
+  robotic-ultrasound dataset** (Franka + ultrasound probe). Weights on
+  [🤗 Hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka](https://huggingface.co/Hemanth21k/GR00T-H-N1.7-TUM-SonATA-Franka);
+  full reproducible pipeline in [`experiments/groot_h_tum_sonata/`](experiments/groot_h_tum_sonata/).
+- **V-JEPA 2** (`latent_predictive/`) — video world model, latent-space prediction.
 
 Planned next:
 
 - V-JEPA 2-AC (action-conditioned planning)
-- Cosmos-Predict (generative)
+- Cosmos-Predict (generative world-model rollouts on the same dataset)
 - Additional VLA baselines (OpenVLA, π0)
 
 ## Repository structure
@@ -122,6 +125,57 @@ bash experiments/groot_h_tum_sonata/03_run_inference.sh
 ```
 
 Predicted vs ground-truth action plots appear in `outputs/groot_h_tum_sonata/`.
+
+## GR00T-H × TUM SonATA — workflow & architecture
+
+The `experiments/groot_h_tum_sonata/` pipeline takes the dataset through fine-tuning,
+evaluation, and visualization. What's available now:
+
+```
+TUM SonATA dataset  (3 cameras · joints · force/torque · language, LeRobot format)
+      │
+      ▼
+04_prep_stats ─► 05_finetune (GR00T-H-N1.7, 6×A6000) ─► checkpoint ─► 06_upload_to_hf ─► 🤗 HF model
+      │                                  (loss 1.62 → 0.026)
+      ▼
+fine-tuned model
+      │
+      ├─► 09_eval ──────────► metrics   (XYZ L2 + geodesic orientation + zero-motion
+      │                                   baseline; 482 test episodes; multi-GPU sharded)
+      │
+      ├─► 07_demo_video ────► demo_*.mp4 (3 cameras + GT-vs-pred EEF trajectory +
+      │                                   orientation triad + error-over-time; open-loop & rollout)
+      │
+      └─► 12_robot_rollout ─► arm video  (predicted EEF pose → IK → Franka playback)   [in progress]
+```
+
+**Model architecture (as run)** — a System-2 VLM conditions a System-1 diffusion action
+head. Verified from the fine-tuned checkpoint config; see
+[`render_architecture.py`](experiments/groot_h_tum_sonata/render_architecture.py) and
+[`docs/assets/architecture.png`](docs/assets/architecture.png):
+
+```
+3 camera views (256×256) ┐
+language instruction     ├─► Qwen3-VL  (System 2)            ─► VL tokens
+─────────────────────────┘   nvidia/Cosmos-Reason2-2B            (B, S≈230, 2048)
+                              features @ layer 16                      │
+                                                                       │ cross-attention
+robot state (7D joints + 6D F/T + EEF ref) ─► state token ──┐          ▼
+noised action chunk (50 × 6D) ──────────────► action tokens ├─► Diffusion Transformer
+                                                            │   (System 1, flow-matching DiT,
+                                                            │    32 layers, cross-attn ⇄ self-attn,
+                                                            │    × 4 denoising steps)
+                                                            ▼
+                                   EEF pose action chunk (50 steps × 6D)
+                                   REL_XYZ_ROT6D → (x, y, z, roll, pitch, yaw),  targets t+1 … t+50
+                                                            │
+                                                            ▼
+                                          Franka Panda + ultrasound probe
+```
+
+Notes: the backbone is **NVIDIA Cosmos-Reason2-2B** (a Qwen3-VL model); conditioning is
+**single-frame / Markovian** (no observation history — `delta_indices=[0]`); the action head
+is a **flow-matching** DiT (4 denoising steps, stochastic — evaluation is seeded).
 
 ## Scope
 
