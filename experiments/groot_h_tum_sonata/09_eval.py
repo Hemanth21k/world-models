@@ -36,6 +36,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import open_h.embodiments
 from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
@@ -98,32 +99,67 @@ def evaluate_episode(
     mode: str,
 ) -> dict:
     """
-    Run inference on one episode and return per-step XYZ L2 errors.
+    Run inference on one episode and return per-step errors.
 
-    Returns:
-        {
-          "errors":        list[float]  — per-step L2 errors (metres)
-          "episode_mean":  float
-          "episode_median": float
-          "episode_max":   float
-          "n_steps":       int
-          "n_inferences":  int
-        }
+    Position error : XYZ L2 distance (metres).
+    Orientation err: geodesic angle between predicted and GT rotations (degrees) —
+                     theta = angle( R_pred^-1 . R_gt ). Rotations are built from the
+                     6D pose's Euler angles with the dataset's extrinsic "xyz"
+                     convention (see pose.eulers_to_rotation_matrices). This is the
+                     true rotation error and is robust to Euler +/-pi wraparound and
+                     gimbal lock — unlike per-axis |Δroll|,|Δpitch|,|Δyaw|, which
+                     are coupled and blow up near singularities.
+    Zero-motion baseline: a trivial predictor that just holds the pose at the last
+                     observation (gt[anchor]). Reports how far the EEF drifts within
+                     a horizon — the floor the model must beat for the metric to mean
+                     anything (since the model is *given* the current pose).
     """
     policy.reset()
     gt_raw = np.stack([np.array(traj["action.eef_pose"].iloc[i]).astype(np.float32)
                        for i in range(len(traj))])   # (T, 6)
+    gt_R   = Rotation.from_euler("xyz", gt_raw[:, 3:6])   # batch of GT rotations
 
-    errors        = []
-    cached_pred   = np.zeros((50, 6))  # model always outputs 50 steps
+    errors        = []   # model XYZ L2 (m)
+    rot_errors    = []   # model geodesic orientation error (deg)
+    base_errors   = []   # zero-motion XYZ L2 (m)
+    base_rot      = []   # zero-motion geodesic orientation error (deg)
+    cached_pred   = None
+    anchor        = -1
     pred_eef_6d   = gt_raw[0].copy()
     n_inferences  = 0
 
     for step in range(len(traj)):
-        eef_for_state = None if mode == "open_loop" else pred_eef_6d
-        obs, _ = build_observation(traj, step, modality_cfg, eef_for_state)
+        # Prediction for the CURRENT row from the chunk already in cache. The chunk
+        # inferred at step `anchor` predicts rows anchor+1 .. anchor+50 (action
+        # delta_indices = 1..50), so the forecast for row `step` is at index
+        # (step - anchor - 1). We consume this BEFORE re-planning so the boundary
+        # row keeps the chunk that actually covers it. Row 0 has no forecast.
+        idx = -1 if cached_pred is None else min(step - anchor - 1, len(cached_pred) - 1)
 
-        if step % action_horizon == 0:
+        if idx >= 0:
+            pred_step = cached_pred[idx]
+
+            # Position: XYZ L2 (prediction for row r vs GT row r)
+            errors.append(float(np.linalg.norm(pred_step[:3] - gt_raw[step][:3])))
+
+            # Orientation: geodesic angle between predicted and GT rotation
+            R_pred = Rotation.from_euler("xyz", pred_step[3:6])
+            rot_errors.append(float(np.degrees((R_pred.inv() * gt_R[step]).magnitude())))
+
+            # Zero-motion baseline: hold the pose at the last observation (gt[anchor])
+            base_errors.append(float(np.linalg.norm(gt_raw[anchor][:3] - gt_raw[step][:3])))
+            base_rot.append(float(np.degrees((gt_R[anchor].inv() * gt_R[step]).magnitude())))
+
+            # Rollout: feed predicted pose back as the next reference state
+            if mode == "rollout":
+                pred_eef_6d = pred_step.copy()
+
+        # Re-plan at step 0 (bootstrap) and every `action_horizon` steps thereafter.
+        # Build the observation here, after the rollout reference has been updated,
+        # so inference conditions on the freshest predicted state.
+        if cached_pred is None or step % action_horizon == 0:
+            eef_for_state = None if mode == "open_loop" else pred_eef_6d
+            obs, _ = build_observation(traj, step, modality_cfg, eef_for_state)
             action_chunk, _ = policy.get_action(obs)
             pred_raw = np.array(action_chunk.get("eef_pose", np.zeros((1, 50, 6))))
             if pred_raw.ndim == 3:
@@ -133,27 +169,35 @@ def evaluate_episode(
                 pad = np.tile(pred_raw[-1:], (50 - len(pred_raw), 1))
                 pred_raw = np.concatenate([pred_raw, pad], axis=0)
             cached_pred = pred_raw
+            anchor = step
             n_inferences += 1
 
-        chunk_offset = step % action_horizon
-        pred_step = cached_pred[min(chunk_offset, len(cached_pred) - 1)]
+    if not errors:   # degenerate (episode too short to score any row)
+        return {"errors": [], "episode_mean": 0.0, "episode_median": 0.0,
+                "episode_max": 0.0, "rot_mean_deg": 0.0, "rot_median_deg": 0.0,
+                "rot_max_deg": 0.0, "base_mean": 0.0, "base_rot_mean_deg": 0.0,
+                "n_steps": 0, "n_inferences": n_inferences}
 
-        # XYZ L2 error
-        err = float(np.linalg.norm(pred_step[:3] - gt_raw[step][:3]))
-        errors.append(err)
+    err_arr  = np.array(errors)
+    rot_arr  = np.array(rot_errors)
+    base_arr = np.array(base_errors)
+    brot_arr = np.array(base_rot)
 
-        # Rollout: update predicted EEF state
-        if mode == "rollout":
-            pred_eef_6d = pred_step.copy()
-
-    err_arr = np.array(errors)
     return {
-        "errors":         errors,
-        "episode_mean":   float(err_arr.mean()),
-        "episode_median": float(np.median(err_arr)),
-        "episode_max":    float(err_arr.max()),
-        "n_steps":        len(errors),
-        "n_inferences":   n_inferences,
+        "errors":              errors,
+        # Model — position (m)
+        "episode_mean":        float(err_arr.mean()),
+        "episode_median":      float(np.median(err_arr)),
+        "episode_max":         float(err_arr.max()),
+        # Model — orientation (deg, geodesic)
+        "rot_mean_deg":        float(rot_arr.mean()),
+        "rot_median_deg":      float(np.median(rot_arr)),
+        "rot_max_deg":         float(rot_arr.max()),
+        # Zero-motion baseline (for interpretability)
+        "base_mean":           float(base_arr.mean()),
+        "base_rot_mean_deg":   float(brot_arr.mean()),
+        "n_steps":             len(errors),
+        "n_inferences":        n_inferences,
     }
 
 
@@ -200,29 +244,41 @@ def run_evaluation(
                 eta = (len(test_episode_ids) - ep_idx - 1) / max(rate, 1e-6)
                 print(
                     f"  ep {ep_idx+1:4d}/{len(test_episode_ids)}"
-                    f"  mean={ep_result['episode_mean']*100:.2f}cm"
+                    f"  pos={ep_result['episode_mean']*100:.2f}cm"
+                    f"  rot={ep_result['rot_mean_deg']:.2f}°"
                     f"  ETA {eta/60:.1f}min",
-                    end="\r",
+                    end="\r", flush=True,
                 )
 
-            # Aggregate across episodes
-            ep_means = np.array([e["episode_mean"] for e in per_episode])
+            # Aggregate across episodes (mean of per-episode means)
+            ep_means   = np.array([e["episode_mean"]      for e in per_episode])
+            rot_means  = np.array([e.get("rot_mean_deg", 0.0)       for e in per_episode])
+            base_means = np.array([e.get("base_mean", 0.0)          for e in per_episode])
+            brot_means = np.array([e.get("base_rot_mean_deg", 0.0)  for e in per_episode])
             stats = {
+                # Model — position (m; ×100 for cm when printing)
                 "mean_of_means":   float(ep_means.mean()),
                 "std_of_means":    float(ep_means.std()),
                 "median_of_means": float(np.median(ep_means)),
                 "max_of_means":    float(ep_means.max()),
                 "min_of_means":    float(ep_means.min()),
                 "n_episodes":      len(per_episode),
+                # Model — orientation (deg, geodesic)
+                "rot_mean_deg":    float(rot_means.mean()),
+                "rot_std_deg":     float(rot_means.std()),
+                # Zero-motion baseline
+                "base_mean":         float(base_means.mean()),
+                "base_rot_mean_deg": float(brot_means.mean()),
             }
             results[mode][horizon] = {"per_episode": per_episode, "stats": stats}
 
             elapsed = time.time() - t0
             print(f"\n  Done in {elapsed/60:.1f} min  "
-                  f"→ mean={stats['mean_of_means']*100:.2f} ± "
+                  f"→ pos={stats['mean_of_means']*100:.2f} ± "
                   f"{stats['std_of_means']*100:.2f} cm  "
-                  f"median={stats['median_of_means']*100:.2f} cm  "
-                  f"max={stats['max_of_means']*100:.2f} cm")
+                  f"rot={stats['rot_mean_deg']:.2f}°  "
+                  f"(baseline pos={stats['base_mean']*100:.2f} cm "
+                  f"rot={stats['base_rot_mean_deg']:.2f}°)")
 
             # Save incrementally (so partial results survive if interrupted)
             out_file = output_dir / "eval_results.json"
@@ -237,27 +293,31 @@ def print_table(results: dict) -> None:
     modes   = list(results.keys())
     horizon_set = sorted({int(h) for m in modes for h in results[m].keys()})
 
-    print("\n" + "=" * 72)
+    print("\n" + "=" * 88)
     print("GR00T-H-N1.7  TUM SonATA Franka  Evaluation (test split)")
-    print("Metric: per-step XYZ L2 error  →  mean across episodes  (cm)")
-    print("=" * 72)
+    print("Position: per-step XYZ L2 (cm) | Orientation: geodesic angle (deg)")
+    print("Baseline = zero-motion (hold last observed pose) — the floor to beat")
+    print("=" * 88)
 
     for mode in modes:
         label = "Open-loop (GT state)" if mode == "open_loop" else "Rollout (pred state)"
         print(f"\n{label}")
-        print(f"  {'Horizon':>8} | {'Mean (cm)':>10} | {'± Std':>8} | "
-              f"{'Median (cm)':>12} | {'Max (cm)':>9}")
-        print("  " + "-" * 56)
+        print(f"  {'Horizon':>7} | {'Pos cm':>7} | {'±Std':>6} | {'Median':>7} | "
+              f"{'Max':>6} | {'Rot°':>6} | {'Base cm':>8} | {'Base°':>6}")
+        print("  " + "-" * 74)
         for h in horizon_set:
             if h not in results[mode]:
                 continue
             s = results[mode][h]["stats"]
-            print(f"  {h:>8} | {s['mean_of_means']*100:>10.2f} | "
-                  f"{s['std_of_means']*100:>7.2f} | "
-                  f"{s['median_of_means']*100:>12.2f} | "
-                  f"{s['max_of_means']*100:>9.2f}")
+            print(f"  {h:>7} | {s['mean_of_means']*100:>7.2f} | "
+                  f"{s['std_of_means']*100:>6.2f} | "
+                  f"{s['median_of_means']*100:>7.2f} | "
+                  f"{s['max_of_means']*100:>6.2f} | "
+                  f"{s.get('rot_mean_deg', float('nan')):>6.2f} | "
+                  f"{s.get('base_mean', float('nan'))*100:>8.2f} | "
+                  f"{s.get('base_rot_mean_deg', float('nan')):>6.2f}")
 
-    print("=" * 72)
+    print("=" * 88)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -273,7 +333,29 @@ def main():
     parser.add_argument("--max-episodes", type=int, default=None,
                         help="Limit test episodes (useful for quick sanity checks)")
     parser.add_argument("--device",       type=int, default=0)
+    parser.add_argument("--seed",         type=int, default=0,
+                        help="Seed for the (stochastic) diffusion action head — makes "
+                             "the eval reproducible. The head samples from noise, so "
+                             "without this every run gives slightly different numbers.")
+    parser.add_argument("--num-shards",  type=int, default=1,
+                        help="Split test episodes into this many shards for multi-GPU "
+                             "parallel eval. Each shard runs the full horizon×mode sweep "
+                             "on a strided slice of episodes; merge with 11_merge_eval.py.")
+    parser.add_argument("--shard-index", type=int, default=0,
+                        help="Which shard (0..num_shards-1) this process evaluates.")
     args = parser.parse_args()
+
+    # The action head is a flow-matching/diffusion model that samples from Gaussian
+    # noise (gr00t_n1d7.py get_action), so results are stochastic. Seed everything
+    # for reproducibility. NOTE: this is still a single sample per inference — for a
+    # variance-aware metric, run several seeds and average.
+    import random
+    import torch
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -296,7 +378,14 @@ def main():
     if args.max_episodes:
         test_ids = test_ids[:args.max_episodes]
 
-    print(f"Test episodes: {len(test_ids)}  ({test_range})")
+    # Episode sharding for multi-GPU parallelism: strided slice keeps each shard's
+    # episode-length mix similar (better load balance than contiguous chunks).
+    print(f"Test split {test_range}: {len(test_ids)} episodes total")
+    if args.num_shards > 1:
+        test_ids = test_ids[args.shard_index::args.num_shards]
+        preview = ", ".join(str(i) for i in test_ids[:4])
+        print(f"Shard {args.shard_index+1}/{args.num_shards}: "
+              f"this shard = {len(test_ids)} episodes  [{preview}, ...]")
     print(f"Horizons: {args.horizons}")
     print(f"Modes: {args.modes}")
 
