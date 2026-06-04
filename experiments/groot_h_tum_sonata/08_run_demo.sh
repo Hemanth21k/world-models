@@ -38,6 +38,7 @@ docker run --rm --gpus all \
         --dataset-path /data/sonata_all \
         --output-dir /outputs/demo_videos \
         --traj-ids $TRAJ_IDS \
+        --mode both \
         --action-horizon 16 \
         --max-steps 300 \
         --fps 10"
