@@ -32,7 +32,7 @@ Add new items under **Backlog**, move them left as they advance.
 | Item | Notes |
 |------|-------|
 | Quantitative evaluation on test split | `09_eval.py` running on 482 episodes, multi-GPU **episode-sharded** across 4 GPUs; horizon sweep × {open-loop, rollout}. Metrics: **XYZ L2 + geodesic orientation + zero-motion baseline**, reproducible (`--seed`). Merge with `11_merge_eval.py` |
-| Robot simulation rollout (Level 3) | `12_robot_rollout.py` (next) — predicted EEF pose → IK → Franka URDF playback in PyBullet, GT vs predicted, composited with the demo |
+| Robot rollout (Level 3) | `12_robot_rollout.py` — PyBullet Franka playback of predicted EEF poses; GT (green ghost) vs predicted (orange) overlay via two-pass masked composite; self-calibrated probe→flange tool transform; GT-seeded IK. Rendering full episodes |
 | PR to NVIDIA upstream | Fix for `dropout_prob_by_embodiment` unexpected key; patch ready in `patches/groot_h/` |
 
 ---

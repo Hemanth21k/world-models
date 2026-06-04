@@ -1,0 +1,4 @@
+# Extra dependency for 12_robot_rollout.py (robot animation).
+# Installed into an isolated path by 13_run_robot_rollout.sh so it never
+# mutates the shared GR00T-H container venv (avoids parallel-run races).
+pybullet
