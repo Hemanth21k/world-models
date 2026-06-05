@@ -210,6 +210,11 @@ horizon `H`. Position = XYZ L2; orientation = geodesic angle; baseline = zero-mo
 
 (Full sweep — all horizons, both modes, std/median/max — in `eval_results_merged.json`.)
 
+**Splits** (from `meta/info.json`): train `0–1676`, val `1677–1914`, **test `1915–2396`** — disjoint;
+the eval runs only on the held-out test episodes. Note the test set is *in-distribution* (same
+phantoms / task families, unseen episodes), so this measures held-out imitation accuracy rather
+than out-of-distribution generalization.
+
 ## Scope
 
 This repository focuses on world models for **Physical AI**: models that learn 
@@ -250,6 +255,17 @@ External models, weights, and datasets carry their own licenses.
 
 By submitting a pull request you agree your contribution will be licensed under
 Apache 2.0.
+
+## Acknowledgements
+
+This work was conducted at the **Quantitative Bio Imaging Lab (QBIL)** at
+**The University of Texas at Dallas**. Computing resources were provided by the QBIL GPU cluster.
+
+Research reported here was supported in part by the National Cancer Institute of the National
+Institutes of Health under Award Numbers **R01CA288379** and **R01CA204254**, and by the
+Cancer Prevention and Research Institute of Texas (CPRIT) under Award Number **RP240289**.
+The content is solely the responsibility of the authors and does not necessarily represent the
+official views of the National Institutes of Health.
 
 ## Citation
 
