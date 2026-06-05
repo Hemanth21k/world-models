@@ -24,6 +24,15 @@ Planned next:
 - Cosmos-Predict (generative world-model rollouts on the same dataset)
 - Additional VLA baselines (OpenVLA, π0)
 
+## Demo
+
+[![GR00T-H-N1.7 on TUM SonATA — unified demo](docs/assets/demo_2050_open_loop.gif)](docs/assets/demo_2050_open_loop.mp4)
+
+GR00T-H-N1.7 fine-tuned on TUM SonATA (open-loop): probe positioning → transverse-plane
+traversal. One frame shows the live cameras (third-person / wrist / ultrasound), predicted
+vs. ground-truth action curves, position + orientation tracking error, the commanded Franka
+motion (GT green-ghost vs. predicted orange), and the EEF path. **▶ [Full video](docs/assets/demo_2050_open_loop.mp4).**
+
 ## Repository structure
 
 ```
@@ -176,6 +185,30 @@ noised action chunk (50 × 6D) ──────────────► act
 Notes: the backbone is **NVIDIA Cosmos-Reason2-2B** (a Qwen3-VL model); conditioning is
 **single-frame / Markovian** (no observation history — `delta_indices=[0]`); the action head
 is a **flow-matching** DiT (4 denoising steps, stochastic — evaluation is seeded).
+
+### Results (test split, 482 episodes)
+
+Per-step error of the predicted vs. ground-truth EEF action, swept over the re-inference
+horizon `H`. Position = XYZ L2; orientation = geodesic angle; baseline = zero-motion
+(hold last pose). Seeded for reproducibility — see
+[`09_eval.py`](experiments/groot_h_tum_sonata/09_eval.py) /
+[`11_merge_eval.py`](experiments/groot_h_tum_sonata/11_merge_eval.py).
+
+| Mode | H | Pos (cm) | Rot (°) | Baseline pos (cm) | Baseline rot (°) |
+|------|---|----------|---------|-------------------|------------------|
+| Open-loop | 1  | **0.09** | 1.07 | 0.19 | 0.53 |
+| Open-loop | 8  | 0.37 | 1.47 | 0.84 | 2.37 |
+| Open-loop | 16 | 0.64 | 2.15 | 1.55 | 4.39 |
+| Open-loop | 50 | 1.61 | 4.92 | 4.24 | 12.70 |
+| Rollout   | 16 | 4.72 | 14.14 | 1.55 | 4.39 |
+
+- **Open-loop** (true state each step): sub-cm to ~6 mm, beating the zero-motion baseline
+  ~2–2.6× on position; degrades gracefully as re-inference gets sparser (`H` larger).
+- **Rollout** (predicted EEF pose fed back as the reference state): errors compound (~4 cm /
+  ~14°). This rollout is **hybrid** — only the EEF pose is fed back; cameras and the rest of
+  the state still come from the dataset (a true closed loop needs a world model).
+
+(Full sweep — all horizons, both modes, std/median/max — in `eval_results_merged.json`.)
 
 ## Scope
 
